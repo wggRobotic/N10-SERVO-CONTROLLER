@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/opt/ros/humble/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/driver/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/esp_common/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/esp_rom/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/esp32/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/driver/include/driver/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/driver/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/soc/esp32/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/soc/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/freertos_apps/microros_esp32_extensions/build/config/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/xtensa/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/freertos/include/**",
+                "/home/corvus/workspace/microros_ws/firmware/toolchain/esp-idf/components/xtensa/esp32/include/**"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
