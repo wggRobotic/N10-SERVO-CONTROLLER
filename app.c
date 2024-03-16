@@ -53,10 +53,12 @@
 
 
 // PWM Channels (Reserve channel 0 and 1 for camera)
-#define PWM_LEFT_FORWARD LEDC_CHANNEL_2
-#define PWM_LEFT_BACKWARD LEDC_CHANNEL_3
-#define PWM_RIGHT_FORWARD LEDC_CHANNEL_4
-#define PWM_RIGHT_BACKWARD LEDC_CHANNEL_5
+#define PWM_SERVO_LEFT_Front LEDC_CHANNEL_2
+#define PWM_SERVO_RIGHT_Front LEDC_CHANNEL_3
+#define PWM_SERVO_LEFT_Middle LEDC_CHANNEL_4
+#define PWM_SERVO_RIGHT_Middle LEDC_CHANNEL_5
+#define PWM_SERVO_LEFT_Back LEDC_CHANNEL_6
+#define PWM_SERVO_RIGHT_Back LEDC_CHANNEL_7
 
 // Other PWM settings
 #define PWM_FREQUENCY 50
@@ -64,9 +66,6 @@
 #define PWM_TIMER LEDC_TIMER_1
 #define PWM_MODE LEDC_HIGH_SPEED_MODE
 
-// These values are determined by experiment and are unique to every robot
-#define PWM_MOTOR_MIN 750  // The value where the motor starts moving
-#define PWM_MOTOR_MAX 4095 // Full speed (2^12 - 1)
 
 geometry_msgs__msg__Twist msg;
 
@@ -103,42 +102,42 @@ void setupPins()
 
     // Configure 6 PWM channels and assign output pins
     ledc_channel_config_t ledc_channel[6] = {
-        {.channel = PWM_LEFT_FORWARD,
+        {.channel = PWM_SERVO_LEFT_Front,
          .duty = 0,
          .gpio_num = SERVO_LEFT_Front,
          .speed_mode = PWM_MODE,
          .hpoint = 0,
          .timer_sel = LEDC_TIMER_1},
 
-        {.channel = PWM_LEFT_BACKWARD,
+        {.channel = PWM_SERVO_RIGHT_Front,
          .duty = 0,
          .gpio_num = SERVO_RIGHT_Front,
          .speed_mode = PWM_MODE,
          .hpoint = 0,
          .timer_sel = LEDC_TIMER_1},
 
-        {.channel = PWM_RIGHT_FORWARD,
+        {.channel = PWM_SERVO_LEFT_Middle,
          .duty = 0,
          .gpio_num = SERVO_LEFT_Middle,
          .speed_mode = PWM_MODE,
          .hpoint = 0,
          .timer_sel = LEDC_TIMER_1},
 
-        {.channel = PWM_RIGHT_BACKWARD,
+        {.channel = PWM_SERVO_RIGHT_Middle,
          .duty = 0,
          .gpio_num = SERVO_RIGHT_Middle,
          .speed_mode = PWM_MODE,
          .hpoint = 0,
          .timer_sel = LEDC_TIMER_1},
 
-        {.channel = PWM_RIGHT_BACKWARD,
+        {.channel = PWM_SERVO_LEFT_Back,
          .duty = 0,
          .gpio_num = SERVO_LEFT_Back,
          .speed_mode = PWM_MODE,
          .hpoint = 0,
          .timer_sel = LEDC_TIMER_1},
 
-        {.channel = PWM_RIGHT_BACKWARD,
+        {.channel = PWM_SERVO_RIGHT_Back,
          .duty = 0,
          .gpio_num = SERVO_RIGHT_Back,
          .speed_mode = PWM_MODE,
@@ -219,31 +218,30 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     }
 
     // Use linear.x for forward value and angular.z for rotation
-    float linear = constrain(msg.linear.x, -1, 1);
-    float angular = constrain(msg.angular.z, -1, 1);
+    float linearX = constrain(msg.linear.x, -1, 1);
+    float linearY = constrain(msg.linear.y,-1,1);
+    float angularY = constrain(msg.angular.z, -1, 1);
 
-    // This robot is an RC tank and uses a differential drive (skid steering).
-    // Calculate the speed of left and right motors. Simple version without wheel distances.
-    // Taken from https://hackernoon.com/unicycle-to-differential-drive-courseras-control-of-mobile-robots-with-ros-and-rosbots-part-2-6d27d15f2010#1e59
-    float left = (linear - angular) / 2.0f;
-    float right = (linear + angular) / 2.0f;
+    uint32_t PWM_Duty_SLF,PWM_Duty_SRF,PWM_Duty_SLM,PWM_Duty_SRM,PWM_Duty_SLB,PWM_Duty_SRB; 
 
-    // Then map those values to PWM intensities. PWM_MOTOR_MAX = full speed, PWM_MOTOR_MIN = the minimal amount of power at which the motors begin moving.
-    uint16_t pwmLeft = (uint16_t)fmap(fabs(left), 0, 1, PWM_MOTOR_MIN, PWM_MOTOR_MAX);
-    uint16_t pwmRight = (uint16_t)fmap(fabs(right), 0, 1, PWM_MOTOR_MIN, PWM_MOTOR_MAX);
+    //------------------------------------------
+    //        Paste logic pls here!
+    //------------------------------------------
 
     // Each wheel has a channel for forwards and backwards movement
-    ledc_set_duty(PWM_MODE, PWM_LEFT_FORWARD, pwmLeft * (left > 0));
-    ledc_set_duty(PWM_MODE, PWM_LEFT_BACKWARD, pwmLeft * (left < 0));
-    ledc_set_duty(PWM_MODE, PWM_RIGHT_FORWARD, pwmRight * (right > 0));
-    ledc_set_duty(PWM_MODE, PWM_RIGHT_BACKWARD, pwmRight * (right < 0));
+    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Front, PWM_Duty_SLF);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front,PWM_Duty_SRF);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Middle,PWM_Duty_SLM);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Middle,PWM_Duty_SRM);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Back, PWM_Duty_SLB);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Back, PWM_Duty_SRB);
 
-    ledc_update_duty(PWM_MODE, PWM_LEFT_FORWARD);
-    ledc_update_duty(PWM_MODE, PWM_LEFT_BACKWARD);
-    ledc_update_duty(PWM_MODE, PWM_RIGHT_FORWARD);
-    ledc_update_duty(PWM_MODE, PWM_RIGHT_BACKWARD);
-
-    printf("%d, %d %d, %d, %d %d, %f, %f\n", pwmLeft, left > 0, left < 0, pwmRight, right > 0, right < 0, left, right);
+    ledc_update_duty(PWM_MODE, PWM_SERVO_LEFT_Front);
+    ledc_update_duty(PWM_MODE, PWM_SERVO_RIGHT_Front);
+    ledc_update_duty(PWM_MODE, PWM_SERVO_LEFT_Middle);
+    ledc_update_duty(PWM_MODE, PWM_SERVO_RIGHT_Middle);
+    ledc_update_duty(PWM_MODE, PWM_SERVO_LEFT_Back);
+    ledc_update_duty(PWM_MODE, PWM_SERVO_RIGHT_Back);
 }
 
 // Helper functions
