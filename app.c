@@ -51,6 +51,10 @@
 #define SERVO_LEFT_Back 16
 #define SERVO_RIGHT_Back 17
 
+// Robot Params
+#define Rwidth 10 // example values
+#define Rlength 20
+#define Rwheeldistance Rlength / 2
 
 // PWM Channels (Reserve channel 0 and 1 for camera)
 #define PWM_SERVO_LEFT_Front LEDC_CHANNEL_2
@@ -62,10 +66,9 @@
 
 // Other PWM settings
 #define PWM_FREQUENCY 50
-#define PWM_RESOLUTION LEDC_TIMER_12_BIT
+#define PWM_RESOLUTION LEDC_TIMER_8_BIT
 #define PWM_TIMER LEDC_TIMER_1
 #define PWM_MODE LEDC_HIGH_SPEED_MODE
-
 
 geometry_msgs__msg__Twist msg;
 
@@ -142,7 +145,7 @@ void setupPins()
          .gpio_num = SERVO_RIGHT_Back,
          .speed_mode = PWM_MODE,
          .hpoint = 0,
-         .timer_sel = LEDC_TIMER_1}, 
+         .timer_sel = LEDC_TIMER_1},
     };
 
     for (int i = 0; i < 6; i++)
@@ -219,20 +222,165 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
 
     // Use linear.x for forward value and angular.z for rotation
     float linearX = constrain(msg.linear.x, -1, 1);
-    float linearY = constrain(msg.linear.y,-1,1);
+    float linearY = constrain(msg.linear.y, -1, 1);
     float angularY = constrain(msg.angular.z, -1, 1);
 
-    uint32_t PWM_Duty_SLF,PWM_Duty_SRF,PWM_Duty_SLM,PWM_Duty_SRM,PWM_Duty_SLB,PWM_Duty_SRB; 
+    uint32_t PWM_Duty_SLF, PWM_Duty_SRF, PWM_Duty_SLM, PWM_Duty_SRM, PWM_Duty_SLB, PWM_Duty_SRB;
 
     //------------------------------------------
-    //        Paste logic pls here!
+    //              logic
+    //-----------------------------------------
+    // angular movement
+    const float pi = 3.1415926535897932385;
+    float sr = Rwidth / 2;
+    float br = sqrtf(Rwheeldistance * Rwheeldistance + Rwidth * Rwidth);
+    float beta = atanf(Rwheeldistance / (Rwidth / 2));
+    // angulars
+    // B = Beta l/r= left/right f/m/r = front/middles/back 
+    float Blf = beta;
+    float Brf = 2 * pi - beta;
+    float Blm = 0.5 * pi;
+    float Brm = 2 * pi - Blm;
+    float Blb = Brf;
+    float Brb = Blf;
+    // velocity
+    float Vlf = fabsf(msg.angular.z);
+    float Vrf = Vlf;
+    float Vlm = (br / sr) * Vlf;
+    float Vrm = Vlm;
+    float Vlb = Vrf;
+    float Vrb = Vlf;
+
+    // linear movement
+    float gamma;
+    float c;
+    if (msg.linear.x != 0 && msg.linear.y != 0)
+    {
+        gamma = atanf(msg.linear.y / msg.linear.x);
+        c = sqrtf(msg.linear.y * msg.linear.y + msg.linear.x * msg.linear.x);
+    }
+    else if (msg.linear.x != 0)
+    {
+        if (msg.linear.x > 0)
+            gamma = 0.5 * pi;
+        else
+            gamma = 1.5 * pi;
+        c = fabsf(msg.linear.x);
+    }
+    else if (msg.linear.y != 0)
+    {
+        if (msg.linear.y > 0)
+            gamma = 0;
+        else
+            gamma = pi;
+        c = fabsf(msg.linear.y);
+    }
+
+    // Morph gamma and beta
+    // Delta is gamma and betas morphed
+    float Dlf;
+    float Drf;
+    float Dlm;
+    float Drm;
+    float Dlb;
+    float Drb;
+    // End velocity
+    float Evlf;
+    float Evrf;
+    float Evlm;
+    float Evrm;
+    float Evlb;
+    float Evrb;
+    
+    float xlf;    
+    float xrf;    
+    float xlm;
+    float xrm;    
+    float xlb;
+    float xrb;
+
+    float ylf;    
+    float yrf;    
+    float ylm;
+    float yrm;    
+    float ylb;
+    float yrb;
+
+    if (msg.linear.z != 0)
+    {
+        xlf = cosf(Blf)*Vlf + msg.linear.x; 
+        ylf = sinf(Blf)*Vlf + msg.linear.y;
+        Evlf=sqrtf(ylf*ylf + xlf*xlf);
+
+
+
+        xrf = cosf(Brf)*Vrf + msg.linear.x;
+        yrf = sinf(Brf)*Vrf + msg.linear.y;
+        Evrf=sqrtf(yrf*yrf + xrf*xrf);
+
+
+        xlm = cosf(Blm)*Vlm + msg.linear.x;
+        ylm = sinf(Blm)*Vlm + msg.linear.y;
+        Evlm=sqrtf(ylm*ylm + xlm*xlm);
+
+
+        xrm = cosf(Brm)*Vrm + msg.linear.x;
+        yrm = sinf(Brm)*Vrm + msg.linear.y;
+        Evrm=sqrtf(yrm*yrm + xrm*xrm);
+
+
+        xlb = cosf(Blb)*Vlb + msg.linear.x;
+        ylb = sinf(Blb)*Vlb + msg.linear.y;
+        Evlb=sqrtf(ylb*ylb + xlb*xlb);
+
+
+        xrb = cosf(Brf)*Vrf + msg.linear.x;
+        yrb = sinf(Brf)*Vrf + msg.linear.y;
+        Evrb=sqrtf(yrb*yrb + xrb*xrb);
+
+
+
+    }
+    else if (c != 0)
+    {
+        Dlf = gamma;
+        Drf = gamma;
+        Dlm = gamma;
+        Drm = gamma;
+        Dlb = gamma;
+        Drb = gamma;
+
+        Evlf = c;
+        Evrf = c;
+        Evlm = c;
+        Evrm = c;
+        Evlb = c;
+        Evrb = c;
+    }
+
+    // final movement
+
+    float Alf;
+    float Arf;
+    float Alm;
+    float Arm;
+    float Alb;
+    float Arb;
+
+    PWM_Duty_SLF = fmap(Alf, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SRF = fmap(Arf, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SLM = fmap(Alm, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SRM = fmap(Arm, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SLB = fmap(Alb, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SRB = fmap(Arb, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+
     //------------------------------------------
 
-    // Each wheel has a channel for forwards and backwards movement
+    // Each servo has a channel for movement
     ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Front, PWM_Duty_SLF);
-    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front,PWM_Duty_SRF);
-    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Middle,PWM_Duty_SLM);
-    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Middle,PWM_Duty_SRM);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front, PWM_Duty_SRF);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Middle, PWM_Duty_SLM);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Middle, PWM_Duty_SRM);
     ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Back, PWM_Duty_SLB);
     ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Back, PWM_Duty_SRB);
 
