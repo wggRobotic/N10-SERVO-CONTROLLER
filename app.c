@@ -236,143 +236,62 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     float br = sqrtf(Rwheeldistance * Rwheeldistance + Rwidth * Rwidth);
     float beta = atanf(Rwheeldistance / (Rwidth / 2));
     // angulars
-    // B = Beta l/r= left/right f/m/r = front/middles/back 
-    float Blf = beta;
-    float Brf = 2 * pi - beta;
-    float Blm = 0.5 * pi;
-    float Brm = 2 * pi - Blm;
-    float Blb = Brf;
-    float Brb = Blf;
+    // 0 = left front; 1 = right front; 2 = left middle; 3 = right middle; 4 = left back; 5 = right back;
+    float betaServos[6];
+    betaServos[0] = beta;
+    betaServos[1] = 2 * pi - beta;
+    betaServos[2] = 0.5 * pi;
+    betaServos[3] = 2 * pi - betaServos[2];
+    betaServos[4] = betaServos[1];
+    betaServos[5] = betaServos[0];
     // velocity
-    float Vlf = fabsf(msg.angular.z);
-    float Vrf = Vlf;
-    float Vlm = (br / sr) * Vlf;
-    float Vrm = Vlm;
-    float Vlb = Vrf;
-    float Vrb = Vlf;
-
-    // linear movement
-    float gamma;
-    float c;
-    if (msg.linear.x != 0 && msg.linear.y != 0)
-    {
-        gamma = atanf(msg.linear.y / msg.linear.x);
-        c = sqrtf(msg.linear.y * msg.linear.y + msg.linear.x * msg.linear.x);
-    }
-    else if (msg.linear.x != 0)
-    {
-        if (msg.linear.x > 0)
-            gamma = 0.5 * pi;
-        else
-            gamma = 1.5 * pi;
-        c = fabsf(msg.linear.x);
-    }
-    else if (msg.linear.y != 0)
-    {
-        if (msg.linear.y > 0)
-            gamma = 0;
-        else
-            gamma = pi;
-        c = fabsf(msg.linear.y);
-    }
+    float velocityMotors[6];
+    velocityMotors[0] = fabsf(msg.angular.z);
+    velocityMotors[1] = velocityMotors[1];
+    velocityMotors[2] = (br / sr) * velocityMotors[1];
+    velocityMotors[3] = velocityMotors[3];
+    velocityMotors[4] = velocityMotors[1];
+    velocityMotors[5] = velocityMotors[0];
 
     // Morph gamma and beta
     // Delta is gamma and betas morphed
-    float Dlf;
-    float Drf;
-    float Dlm;
-    float Drm;
-    float Dlb;
-    float Drb;
+    float dServos[6];
     // End velocity
-    float Evlf;
-    float Evrf;
-    float Evlm;
-    float Evrm;
-    float Evlb;
-    float Evrb;
-    
-    float xlf;    
-    float xrf;    
-    float xlm;
-    float xrm;    
-    float xlb;
-    float xrb;
+    float endVelocity[6];
 
-    float ylf;    
-    float yrf;    
-    float ylm;
-    float yrm;    
-    float ylb;
-    float yrb;
+    float x[6];
+
+    float y[6];
 
     if (msg.linear.z != 0)
     {
-        xlf = cosf(Blf)*Vlf + msg.linear.x; 
-        ylf = sinf(Blf)*Vlf + msg.linear.y;
-        Evlf=sqrtf(ylf*ylf + xlf*xlf);
-
-
-
-        xrf = cosf(Brf)*Vrf + msg.linear.x;
-        yrf = sinf(Brf)*Vrf + msg.linear.y;
-        Evrf=sqrtf(yrf*yrf + xrf*xrf);
-
-
-        xlm = cosf(Blm)*Vlm + msg.linear.x;
-        ylm = sinf(Blm)*Vlm + msg.linear.y;
-        Evlm=sqrtf(ylm*ylm + xlm*xlm);
-
-
-        xrm = cosf(Brm)*Vrm + msg.linear.x;
-        yrm = sinf(Brm)*Vrm + msg.linear.y;
-        Evrm=sqrtf(yrm*yrm + xrm*xrm);
-
-
-        xlb = cosf(Blb)*Vlb + msg.linear.x;
-        ylb = sinf(Blb)*Vlb + msg.linear.y;
-        Evlb=sqrtf(ylb*ylb + xlb*xlb);
-
-
-        xrb = cosf(Brf)*Vrf + msg.linear.x;
-        yrb = sinf(Brf)*Vrf + msg.linear.y;
-        Evrb=sqrtf(yrb*yrb + xrb*xrb);
-
-
-
+        for (int i = 0; i < 6; i++)
+        {
+            x[i] = cosf(betaServos[i]) * velocityMotors[i] + msg.linear.x;
+            y[i] = sinf(betaServos[i]) * velocityMotors[i] + msg.linear.y;
+            endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
+        }
     }
-    else if (c != 0)
+    else
     {
-        Dlf = gamma;
-        Drf = gamma;
-        Dlm = gamma;
-        Drm = gamma;
-        Dlb = gamma;
-        Drb = gamma;
-
-        Evlf = c;
-        Evrf = c;
-        Evlm = c;
-        Evrm = c;
-        Evlb = c;
-        Evrb = c;
+        for (int i = 0; i < 6; i++)
+        {
+            x[i] = msg.linear.x;
+            y[i] = msg.linear.y;
+            endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
+        }
     }
 
     // final movement
 
-    float Alf;
-    float Arf;
-    float Alm;
-    float Arm;
-    float Alb;
-    float Arb;
+    float alpha[6];
 
-    PWM_Duty_SLF = fmap(Alf, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SRF = fmap(Arf, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SLM = fmap(Alm, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SRM = fmap(Arm, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SLB = fmap(Alb, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SRB = fmap(Arb, 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SLF = fmap(alpha[0], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SRF = fmap(alpha[1], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SLM = fmap(alpha[2], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SRM = fmap(alpha[3], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SLB = fmap(alpha[4], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
+    PWM_Duty_SRB = fmap(alpha[5], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
 
     //------------------------------------------
 
