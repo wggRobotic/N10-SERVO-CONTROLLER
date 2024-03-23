@@ -54,7 +54,7 @@
 // Robot Params
 #define Rwidth 10 // example values
 #define Rlength 20
-#define Rwheeldistance Rlength / 2
+#define Rwheeldistance (Rlength / 2)
 
 // PWM Channels (Reserve channel 0 and 1 for camera)
 #define PWM_SERVO_LEFT_Front LEDC_CHANNEL_2
@@ -283,8 +283,25 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     }
 
     // final movement
-
     float alpha[6];
+
+    for(int i =0;i<6;i++){
+            if(x[i]>0 && y[i]>0){
+                alpha[i]= atanf(fabsf(y[i])/fabsf(x[i]));
+            }else if(x[i]<0 && y[i]>0){
+                alpha[i]=pi - atanf(fabsf(y[i])/fabsf(x[i]));
+            }else if(x[i]<0 && y[i]<0){
+                alpha[i]=pi + atanf(fabsf(y[i])/fabsf(x[i]));
+            }else if(x[i]>0 && y[i]<0){
+                alpha[i]= 2*pi - atanf(fabsf(y[i])/fabsf(x[i]));
+            }
+
+            if(alpha[i]> pi){
+                alpha[i] -=pi;
+                endVelocity[i] *= -1;
+            }
+        }
+
 
     PWM_Duty_SLF = fmap(alpha[0], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
     PWM_Duty_SRF = fmap(alpha[1], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
