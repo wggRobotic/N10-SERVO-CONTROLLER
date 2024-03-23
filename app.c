@@ -295,7 +295,7 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
             }else if(x[i]>0 && y[i]<0){
                 alpha[i]= 2*pi - atanf(fabsf(y[i])/fabsf(x[i]));
             }
-
+            // converting for Servos and convert Wheel direction
             if(alpha[i]> pi){
                 alpha[i] -=pi;
                 endVelocity[i] *= -1;
