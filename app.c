@@ -231,10 +231,10 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     //              logic
     //-----------------------------------------
     // angular movement
-    const float pi = 3.1415926535897932385;
+   const float pi = 3.1415926535897932385;
     float sr = Rwidth / 2;
-    float br = sqrtf(Rwheeldistance * Rwheeldistance + Rwidth * Rwidth);
-    float beta = atanf(Rwheeldistance / (Rwidth / 2));
+    float br = sqrtf(Rwheeldistance * Rwheeldistance + (Rwidth/2) * (Rwidth/2));
+    float beta = atanf(sr/ Rwheeldistance);
     // angulars
     // 0 = left front; 1 = right front; 2 = left middle; 3 = right middle; 4 = left back; 5 = right back;
     float betaServos[6];
@@ -242,14 +242,14 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     betaServos[1] = 2 * pi - beta;
     betaServos[2] = 0.5 * pi;
     betaServos[3] = 2 * pi - betaServos[2];
-    betaServos[4] = betaServos[1];
-    betaServos[5] = betaServos[0];
+    betaServos[4] = 2*pi - betaServos[0];
+    betaServos[5] = 2*pi - betaServos[1];
     // velocity
     float velocityMotors[6];
     velocityMotors[0] = fabsf(msg.angular.z);
-    velocityMotors[1] = velocityMotors[1];
-    velocityMotors[2] = (br / sr) * velocityMotors[1];
-    velocityMotors[3] = velocityMotors[3];
+    velocityMotors[1] = velocityMotors[0];
+    velocityMotors[2] = (sr / br) * velocityMotors[1];
+    velocityMotors[3] = velocityMotors[2];
     velocityMotors[4] = velocityMotors[1];
     velocityMotors[5] = velocityMotors[0];
 
@@ -263,12 +263,12 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
 
     float y[6];
 
-    if (msg.linear.z != 0)
+    if (msg.angular.z != 0)
     {
         for (int i = 0; i < 6; i++)
         {
-            x[i] = cosf(betaServos[i]) * velocityMotors[i] + msg.linear.x;
-            y[i] = sinf(betaServos[i]) * velocityMotors[i] + msg.linear.y;
+            x[i] = cosf(betaServos[i]) * velocityMotors[i]  * ((msg.angular.z > 0) ? 1.0f : -1.0f) + msg.linear.x ;
+            y[i] = sinf(betaServos[i]) * velocityMotors[i]  * ((msg.angular.z > 0) ? 1.0f : -1.0f) + msg.linear.y ;
             endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
         }
     }
