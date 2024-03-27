@@ -9,7 +9,6 @@
 #include <rclc/executor.h>
 
 #include <geometry_msgs/msg/twist.h>
-
 #include <driver/gpio.h>
 #include <driver/ledc.h>
 
@@ -52,9 +51,9 @@
 #define SERVO_RIGHT_Back 17
 
 // Robot Params
-#define Rwidth 10 // example values
-#define Rlength 20
-#define Rwheeldistance (Rlength / 2)
+#define Rwidth 10.0f // example values
+#define Rlength 20.0f
+#define Rwheeldistance (Rlength / 2.0f)
 
 // PWM Channels (Reserve channel 0 and 1 for camera)
 #define PWM_SERVO_LEFT_Front LEDC_CHANNEL_2
@@ -66,9 +65,12 @@
 
 // Other PWM settings
 #define PWM_FREQUENCY 50
-#define PWM_RESOLUTION LEDC_TIMER_8_BIT
+#define PWM_RESOLUTION LEDC_TIMER_12_BIT
 #define PWM_TIMER LEDC_TIMER_1
 #define PWM_MODE LEDC_HIGH_SPEED_MODE
+
+#define PWM_Servo_min  24.0f
+#define PWM_Servo_max  300.0f
 
 geometry_msgs__msg__Twist msg;
 
@@ -88,7 +90,6 @@ void appMain(void *arg)
 
 void setupPins()
 {
-
     // Led. Set it to GPIO_MODE_INPUT_OUTPUT, because we want to read back the state we set it to.
     gpio_reset_pin(LED_BUILTIN);
     gpio_set_direction(LED_BUILTIN, GPIO_MODE_INPUT_OUTPUT);
@@ -221,100 +222,120 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     }
 
     // Use linear.x for forward value and angular.z for rotation
-    float linearX = constrain(msg.linear.x, -1, 1);
-    float linearY = constrain(msg.linear.y, -1, 1);
-    float angularY = constrain(msg.angular.z, -1, 1);
-
+    float linearX = constrain(msg.linear.x, -1.0f, 1.0f);
+    float linearY = constrain(msg.linear.y, -1.0f, 1.0f);
+    float angularZ = constrain(msg.angular.z, -1.0f, 1.0f);
     uint32_t PWM_Duty_SLF, PWM_Duty_SRF, PWM_Duty_SLM, PWM_Duty_SRM, PWM_Duty_SLB, PWM_Duty_SRB;
 
-    //------------------------------------------
-    //              logic
-    //-----------------------------------------
-    // angular movement
-   const float pi = 3.1415926535897932385;
-    float sr = Rwidth / 2;
-    float br = sqrtf(Rwheeldistance * Rwheeldistance + (Rwidth/2) * (Rwidth/2));
-    float beta = atanf(sr/ Rwheeldistance);
-    // angulars
-    // 0 = left front; 1 = right front; 2 = left middle; 3 = right middle; 4 = left back; 5 = right back;
-    float betaServos[6];
-    betaServos[0] = beta;
-    betaServos[1] = 2 * pi - beta;
-    betaServos[2] = 0.5 * pi;
-    betaServos[3] = 2 * pi - betaServos[2];
-    betaServos[4] = 2*pi - betaServos[0];
-    betaServos[5] = 2*pi - betaServos[1];
-    // velocity
-    float velocityMotors[6];
-    velocityMotors[0] = fabsf(msg.angular.z);
-    velocityMotors[1] = velocityMotors[0];
-    velocityMotors[2] = (sr / br) * velocityMotors[1];
-    velocityMotors[3] = velocityMotors[2];
-    velocityMotors[4] = velocityMotors[1];
-    velocityMotors[5] = velocityMotors[0];
+        //------------------------------------------
+        //              logic
+        //-----------------------------------------
+        // angular movement
+        const float pi = 3.1415926535897932385f;
+        float sr = Rwidth / 2.0f;
+        float br = sqrtf(Rwheeldistance * Rwheeldistance + (Rwidth / 2.0f) * (Rwidth / 2.0f));
+        float beta = atanf(sr / Rwheeldistance);
+        // angulars
+        // 0 = left front; 1 = right front; 2 = left middle; 3 = right middle; 4 = left back; 5 = right back;
+        float betaServos[6];
+        betaServos[0] = beta;
+        betaServos[1] = 2.0f * pi - beta;
+        betaServos[2] = 0.5f * pi;
+        betaServos[3] = 2.0f * pi - betaServos[2];
+        betaServos[4] =  pi - beta;
+        betaServos[5] =  pi + beta;
+        // velocity
+        float velocityMotors[6];
+        velocityMotors[0] = fabsf(angularZ);
+        velocityMotors[1] = velocityMotors[0];
+        velocityMotors[2] = (sr / br) * velocityMotors[1];
+        velocityMotors[3] = velocityMotors[2];
+        velocityMotors[4] = velocityMotors[1];
+        velocityMotors[5] = velocityMotors[0];
 
-    // Morph gamma and beta
-    // Delta is gamma and betas morphed
-    float dServos[6];
-    // End velocity
-    float endVelocity[6];
 
-    float x[6];
+        // End velocity
+        float endVelocity[6];
 
-    float y[6];
+        float x[6];
 
-    if (msg.angular.z != 0)
-    {
+        float y[6];
+
+        if (angularZ != 0.0f)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                x[i] = sinf(betaServos[i]) * velocityMotors[i] * ((angularZ > 0) ? 1.0f : -1.0f) + linearX;
+                y[i] = cosf(betaServos[i]) * velocityMotors[i] * ((angularZ > 0) ? 1.0f : -1.0f) + linearY;
+                endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                x[i] = linearX;
+                y[i] = linearY;
+                endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
+            }
+        }
+
+        // final movement
+        float alpha[6];
+
         for (int i = 0; i < 6; i++)
         {
-            x[i] = cosf(betaServos[i]) * velocityMotors[i]  * ((msg.angular.z > 0) ? 1.0f : -1.0f) + msg.linear.x ;
-            y[i] = sinf(betaServos[i]) * velocityMotors[i]  * ((msg.angular.z > 0) ? 1.0f : -1.0f) + msg.linear.y ;
-            endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
-        }
-    }
-    else
-    {
-        for (int i = 0; i < 6; i++)
-        {
-            x[i] = msg.linear.x;
-            y[i] = msg.linear.y;
-            endVelocity[i] = sqrtf(y[i] * y[i] + x[i] * x[i]);
-        }
-    }
-
-    // final movement
-    float alpha[6];
-
-    for(int i =0;i<6;i++){
-            if(x[i]>0 && y[i]>0){
-                alpha[i]= atanf(fabsf(y[i])/fabsf(x[i]));
-            }else if(x[i]<0 && y[i]>0){
-                alpha[i]=pi - atanf(fabsf(y[i])/fabsf(x[i]));
-            }else if(x[i]<0 && y[i]<0){
-                alpha[i]=pi + atanf(fabsf(y[i])/fabsf(x[i]));
-            }else if(x[i]>0 && y[i]<0){
-                alpha[i]= 2*pi - atanf(fabsf(y[i])/fabsf(x[i]));
+            if (x[i] > 0.0f && y[i] > 0.0f)
+            {
+                alpha[i] = atanf(fabsf(x[i]) / fabsf(y[i]));
+            }
+            else if (x[i] < 0.0f && y[i] > 0.0f)
+            {
+                alpha[i] = 2*pi - atanf(fabsf(x[i]) / fabsf(y[i]));
+            }
+            else if (x[i] < 0.0f && y[i] < 0.0f)
+            {
+                alpha[i] = pi + atanf(fabsf(x[i]) / fabsf(y[i]));
+            }
+            else if (x[i] > 0.0f && y[i] < 0.0f)
+            {
+                alpha[i] =  pi - atanf(fabsf(x[i]) / fabsf(y[i]));
+            }
+            else if(x[i] > 0.0f && y[i] == 0.0f){
+                alpha[i] = 0.5 * pi;
+            }
+            else if(x[i] < 0.0f && y[i] == 0.0f){
+                alpha[i] = 1.5*pi;
+            }
+            else if(x[i] == 0.0f && y[i] > 0.0f){
+                alpha[i] = 0;
+            }
+            else if(x[i] == 0.0f && y[i] < 0.0f){
+                alpha[i] = pi;
+            }else{
+                alpha[i]= 0.5 * pi;
             }
             // converting for Servos and convert Wheel direction
-            if(alpha[i]> pi){
-                alpha[i] -=pi;
-                endVelocity[i] *= -1;
+            if (alpha[i] > pi)
+            {
+                alpha[i] -= pi;
+                endVelocity[i] *= -1.0f;
             }
         }
 
+        PWM_Duty_SLF =(uint32_t) fmap(alpha[0], 0.0f,pi, PWM_Servo_min, PWM_Servo_max);
+        PWM_Duty_SRF =(uint32_t) fmap(alpha[1], 0.0f,pi, PWM_Servo_min, PWM_Servo_max);
+        PWM_Duty_SLM =(uint32_t) fmap(alpha[2], 0.0f,pi, PWM_Servo_min, PWM_Servo_max);
+        PWM_Duty_SRM =(uint32_t) fmap(alpha[3], 0.0f,pi, PWM_Servo_min, PWM_Servo_max);
+        PWM_Duty_SLB =(uint32_t) fmap(alpha[4], 0.0f,pi, PWM_Servo_min, PWM_Servo_max);
+        PWM_Duty_SRB =(uint32_t) fmap(alpha[5], 0.0f,pi, PWM_Servo_min, PWM_Servo_max);
 
-    PWM_Duty_SLF = fmap(alpha[0], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SRF = fmap(alpha[1], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SLM = fmap(alpha[2], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SRM = fmap(alpha[3], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SLB = fmap(alpha[4], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
-    PWM_Duty_SRB = fmap(alpha[5], 0, 2 * pi, 0, powf(2, PWM_RESOLUTION));
 
-    //------------------------------------------
+    //----------------L--------------------------
 
     // Each servo has a channel for movement
-    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Front, PWM_Duty_SLF);
-    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front, PWM_Duty_SRF);
+    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Front, PWM_Servo_max);//12
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front, PWM_Servo_min);//13
     ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Middle, PWM_Duty_SLM);
     ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Middle, PWM_Duty_SRM);
     ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Back, PWM_Duty_SLB);
