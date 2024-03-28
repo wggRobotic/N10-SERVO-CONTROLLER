@@ -69,8 +69,8 @@
 #define PWM_TIMER LEDC_TIMER_1
 #define PWM_MODE LEDC_HIGH_SPEED_MODE
 
-#define PWM_Servo_min  24.0f
-#define PWM_Servo_max  300.0f
+#define PWM_Servo_min  100.0f //13
+#define PWM_Servo_max  500.0f //12
 
 geometry_msgs__msg__Twist msg;
 
@@ -334,8 +334,8 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time)
     //----------------L--------------------------
 
     // Each servo has a channel for movement
-    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Front, PWM_Servo_max);//12
-    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front, PWM_Servo_min);//13
+    ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Front, PWM_Duty_SLF);//12
+    ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Front, PWM_Duty_SRF);//13
     ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Middle, PWM_Duty_SLM);
     ledc_set_duty(PWM_MODE, PWM_SERVO_RIGHT_Middle, PWM_Duty_SRM);
     ledc_set_duty(PWM_MODE, PWM_SERVO_LEFT_Back, PWM_Duty_SLB);
