@@ -70,7 +70,7 @@
 #define PWM_MODE LEDC_HIGH_SPEED_MODE
 
 #define PWM_Servo_min  100.0f //13
-#define PWM_Servo_max  500.0f //12
+#define PWM_Servo_max  480.0f //12
 
 geometry_msgs__msg__Twist msg;
 
