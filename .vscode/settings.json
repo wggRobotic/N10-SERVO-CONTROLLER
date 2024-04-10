@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "rcl.h": "c",
-        "twist.h": "c",
-        "executor.h": "c",
-        "gpio.h": "c",
-        "ledc.h": "c"
-    }
-}
